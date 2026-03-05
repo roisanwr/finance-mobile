@@ -13,6 +13,7 @@ class TransactionScreen extends ConsumerWidget {
   static const colorAccentOrange = Color(0xFFFF9F43);
   static const colorIncome = Colors.greenAccent;
   static const colorExpense = Colors.redAccent;
+  static const colorTransfer = Colors.blueAccent;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,10 +57,23 @@ class TransactionScreen extends ConsumerWidget {
   }
 
   Widget _buildTransactionCard(FiatTransactionModel tx) {
-    final isIncome = tx.transactionType == FiatTxType.PEMASUKAN;
-    final color = isIncome ? colorIncome : colorExpense;
-    final icon = isIncome ? Icons.arrow_downward : Icons.arrow_upward;
-    final sign = isIncome ? '+' : '-';
+    Color color;
+    IconData icon;
+    String sign;
+
+    if (tx.transactionType == FiatTxType.PEMASUKAN) {
+      color = colorIncome;
+      icon = Icons.arrow_downward;
+      sign = '+';
+    } else if (tx.transactionType == FiatTxType.TRANSFER) {
+      color = colorTransfer;
+      icon = Icons.swap_horiz;
+      sign = '↔';
+    } else {
+      color = colorExpense;
+      icon = Icons.arrow_upward;
+      sign = '-';
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -114,7 +128,7 @@ class TransactionScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Klik + untuk catat pemasukan/pengeluaran',
+            'Klik + untuk catat pemasukan/pengeluaran/transfer',
             style: TextStyle(color: Colors.white30, fontSize: 14),
           ),
         ],
@@ -124,9 +138,12 @@ class TransactionScreen extends ConsumerWidget {
 
   void _showAddTransactionModal(BuildContext context, WidgetRef ref) {
     final amountController = TextEditingController();
+    final adminFeeController = TextEditingController();
     final descController = TextEditingController();
+
     FiatTxType selectedType = FiatTxType.PENGELUARAN;
     String? selectedWalletId;
+    String? selectedToWalletId;
 
     showModalBottomSheet(
       context: context,
@@ -138,7 +155,6 @@ class TransactionScreen extends ConsumerWidget {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            // Mengambil list dompet secara real-time dari Riverpod
             final walletsAsync = ref.watch(walletProvider);
 
             return Padding(
@@ -148,201 +164,327 @@ class TransactionScreen extends ConsumerWidget {
                 right: 24,
                 top: 24,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Catat Transaksi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Catat Transaksi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  // Input Nominal
-                  TextField(
-                    controller: amountController,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      prefixText: 'Rp ',
-                      prefixStyle: TextStyle(
-                        color: colorAccentTeal,
+                    // Input Nominal Utama
+                    TextField(
+                      controller: amountController,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                      labelText: 'Nominal',
-                      labelStyle: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 14,
-                      ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white10),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: colorAccentTeal),
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        prefixText: 'Rp ',
+                        prefixStyle: TextStyle(
+                          color: colorAccentTeal,
+                          fontSize: 24,
+                        ),
+                        labelText: 'Nominal',
+                        labelStyle: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 14,
+                        ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white10),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: colorAccentTeal),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  // Jenis Transaksi (Radio Buttons)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: RadioListTile<FiatTxType>(
-                          title: const Text(
-                            'Keluar',
-                            style: TextStyle(color: Colors.white, fontSize: 14),
-                          ),
-                          value: FiatTxType.PENGELUARAN,
-                          groupValue: selectedType,
-                          activeColor: colorExpense,
-                          contentPadding: EdgeInsets.zero,
-                          onChanged: (val) =>
-                              setModalState(() => selectedType = val!),
-                        ),
-                      ),
-                      Expanded(
-                        child: RadioListTile<FiatTxType>(
-                          title: const Text(
-                            'Masuk',
-                            style: TextStyle(color: Colors.white, fontSize: 14),
-                          ),
-                          value: FiatTxType.PEMASUKAN,
-                          groupValue: selectedType,
-                          activeColor: colorIncome,
-                          contentPadding: EdgeInsets.zero,
-                          onChanged: (val) =>
-                              setModalState(() => selectedType = val!),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Dropdown Pilih Dompet
-                  const Text(
-                    'Pilih Dompet',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  walletsAsync.when(
-                    data: (wallets) {
-                      if (wallets.isEmpty)
-                        return const Text(
-                          'Buat dompet dulu di menu Wallets!',
-                          style: TextStyle(color: colorExpense),
-                        );
-
-                      // Set default wallet jika belum dipilih
-                      selectedWalletId ??= wallets.first.id;
-
-                      return DropdownButton<String>(
-                        value: selectedWalletId,
-                        dropdownColor: colorDarkBase,
-                        isExpanded: true,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                        underline: Container(height: 1, color: Colors.white10),
-                        items: wallets
-                            .map(
-                              (w) => DropdownMenuItem(
-                                value: w.id,
-                                child: Text('${w.name} (${w.type.name})'),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null)
-                            setModalState(() => selectedWalletId = val);
-                        },
-                      );
-                    },
-                    loading: () =>
-                        const LinearProgressIndicator(color: colorAccentTeal),
-                    error: (e, s) => Text(
-                      'Error load dompet: $e',
-                      style: const TextStyle(color: colorExpense),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Input Keterangan
-                  TextField(
-                    controller: descController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Keterangan (misal: Beli Kopi, Gaji)',
-                      labelStyle: TextStyle(color: Colors.white54),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white10),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: colorAccentTeal),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Tombol Simpan
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorAccentTeal,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () {
-                        final amount = double.tryParse(
-                          amountController.text.trim(),
-                        );
-                        if (amount == null ||
-                            amount <= 0 ||
-                            selectedWalletId == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Nominal tidak valid atau dompet belum dipilih',
+                    // Jenis Transaksi (Radio Buttons)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<FiatTxType>(
+                            title: const Text(
+                              'Keluar',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
                               ),
                             ),
-                          );
-                          return;
-                        }
+                            value: FiatTxType.PENGELUARAN,
+                            groupValue: selectedType,
+                            activeColor: colorExpense,
+                            contentPadding: EdgeInsets.zero,
+                            onChanged: (val) =>
+                                setModalState(() => selectedType = val!),
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<FiatTxType>(
+                            title: const Text(
+                              'Masuk',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                            ),
+                            value: FiatTxType.PEMASUKAN,
+                            groupValue: selectedType,
+                            activeColor: colorIncome,
+                            contentPadding: EdgeInsets.zero,
+                            onChanged: (val) =>
+                                setModalState(() => selectedType = val!),
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<FiatTxType>(
+                            title: const Text(
+                              'Transfer',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                            ),
+                            value: FiatTxType.TRANSFER,
+                            groupValue: selectedType,
+                            activeColor: colorTransfer,
+                            contentPadding: EdgeInsets.zero,
+                            onChanged: (val) =>
+                                setModalState(() => selectedType = val!),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
 
-                        ref
-                            .read(fiatTransactionProvider.notifier)
-                            .addTransaction(
-                              walletId: selectedWalletId!,
-                              type: selectedType,
-                              amount: amount,
-                              description: descController.text.trim(),
-                              date: DateTime.now(),
-                            );
-                        Navigator.pop(context);
+                    // Dropdown Pilih Dompet
+                    walletsAsync.when(
+                      data: (wallets) {
+                        if (wallets.isEmpty)
+                          return const Text(
+                            'Buat dompet dulu di menu Wallets!',
+                            style: TextStyle(color: colorExpense),
+                          );
+                        selectedWalletId ??= wallets.first.id;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              selectedType == FiatTxType.TRANSFER
+                                  ? 'Dompet Asal'
+                                  : 'Pilih Dompet',
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                            DropdownButton<String>(
+                              value: selectedWalletId,
+                              dropdownColor: colorDarkBase,
+                              isExpanded: true,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                              underline: Container(
+                                height: 1,
+                                color: Colors.white10,
+                              ),
+                              items: wallets
+                                  .map(
+                                    (w) => DropdownMenuItem(
+                                      value: w.id,
+                                      child: Text('${w.name} (${w.type.name})'),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (val) =>
+                                  setModalState(() => selectedWalletId = val),
+                            ),
+
+                            // MUNCUL HANYA JIKA TRANSFER
+                            if (selectedType == FiatTxType.TRANSFER) ...[
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Dompet Tujuan',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              DropdownButton<String>(
+                                value: selectedToWalletId,
+                                hint: const Text(
+                                  'Pilih Dompet Tujuan',
+                                  style: TextStyle(color: Colors.white30),
+                                ),
+                                dropdownColor: colorDarkBase,
+                                isExpanded: true,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                                underline: Container(
+                                  height: 1,
+                                  color: Colors.white10,
+                                ),
+                                items: wallets
+                                    .where(
+                                      (w) => w.id != selectedWalletId,
+                                    ) // Filter agar tidak bisa transfer ke dompet yang sama
+                                    .map(
+                                      (w) => DropdownMenuItem(
+                                        value: w.id,
+                                        child: Text(
+                                          '${w.name} (${w.type.name})',
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (val) => setModalState(
+                                  () => selectedToWalletId = val,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // Input Biaya Admin
+                              TextField(
+                                controller: adminFeeController,
+                                style: const TextStyle(
+                                  color: colorExpense,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  prefixText: 'Rp ',
+                                  prefixStyle: TextStyle(
+                                    color: colorExpense,
+                                    fontSize: 18,
+                                  ),
+                                  labelText: 'Biaya Admin (Opsional)',
+                                  labelStyle: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 12,
+                                  ),
+                                  enabledBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Colors.white10,
+                                    ),
+                                  ),
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(color: colorExpense),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
                       },
-                      child: const Text(
-                        'SIMPAN TRANSAKSI',
-                        style: TextStyle(
-                          color: colorDarkBase,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
+                      loading: () =>
+                          const LinearProgressIndicator(color: colorAccentTeal),
+                      error: (e, s) => Text(
+                        'Error load dompet: $e',
+                        style: const TextStyle(color: colorExpense),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Input Keterangan
+                    TextField(
+                      controller: descController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Keterangan Singkat',
+                        labelStyle: TextStyle(color: Colors.white54),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white10),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: colorAccentTeal),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+                    const SizedBox(height: 32),
+
+                    // Tombol Simpan
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorAccentTeal,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () {
+                          final amount = double.tryParse(
+                            amountController.text.trim(),
+                          );
+                          final adminFee = double.tryParse(
+                            adminFeeController.text.trim(),
+                          );
+
+                          if (amount == null ||
+                              amount <= 0 ||
+                              selectedWalletId == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Nominal tidak valid'),
+                              ),
+                            );
+                            return;
+                          }
+                          if (selectedType == FiatTxType.TRANSFER &&
+                              selectedToWalletId == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Pilih dompet tujuan dulu!'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          ref
+                              .read(fiatTransactionProvider.notifier)
+                              .addTransaction(
+                                walletId: selectedWalletId!,
+                                toWalletId: selectedType == FiatTxType.TRANSFER
+                                    ? selectedToWalletId
+                                    : null,
+                                type: selectedType,
+                                amount: amount,
+                                adminFee:
+                                    adminFee, // Lempar biaya admin ke sistem
+                                description: descController.text.trim(),
+                                date: DateTime.now(),
+                              );
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          'SIMPAN TRANSAKSI',
+                          style: TextStyle(
+                            color: colorDarkBase,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             );
           },

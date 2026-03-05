@@ -3,7 +3,6 @@ import '../../auth/presentation/auth_provider.dart';
 import '../data/fiat_transaction_repository.dart';
 import '../domain/fiat_transaction_model.dart';
 
-// 1. Inject Supabase ke Repository Transaksi
 final fiatTransactionRepositoryProvider = Provider<FiatTransactionRepository>((
   ref,
 ) {
@@ -11,7 +10,6 @@ final fiatTransactionRepositoryProvider = Provider<FiatTransactionRepository>((
   return FiatTransactionRepository(supabase);
 });
 
-// 2. Class Notifier untuk mengelola State Transaksi
 class FiatTransactionNotifier
     extends AsyncNotifier<List<FiatTransactionModel>> {
   @override
@@ -19,11 +17,13 @@ class FiatTransactionNotifier
     return ref.read(fiatTransactionRepositoryProvider).fetchTransactions();
   }
 
-  // Fungsi tambah transaksi yang akan dipanggil dari UI
+  // Parameter diperluas untuk menerima toWalletId dan adminFee
   Future<void> addTransaction({
     required String walletId,
+    String? toWalletId,
     required FiatTxType type,
     required double amount,
+    double? adminFee, // Opsional untuk biaya admin
     String? description,
     required DateTime date,
   }) async {
@@ -31,21 +31,33 @@ class FiatTransactionNotifier
 
     state = await AsyncValue.guard(() async {
       final repo = ref.read(fiatTransactionRepositoryProvider);
+
+      // 1. Eksekusi Transaksi Utama (Masuk/Keluar/Transfer Murni)
       await repo.addTransaction(
         walletId: walletId,
+        toWalletId: toWalletId,
         type: type,
         amount: amount,
         description: description,
         date: date,
       );
 
-      // Jika berhasil, tarik ulang riwayat transaksi terbaru
+      // 2. Eksekusi Transaksi Hantu (Biaya Admin) jika ada
+      if (type == FiatTxType.TRANSFER && adminFee != null && adminFee > 0) {
+        await repo.addTransaction(
+          walletId: walletId, // Memotong dari dompet asal
+          type: FiatTxType.PENGELUARAN, // Murni dicatat sebagai pengeluaran
+          amount: adminFee,
+          description: 'Biaya Admin: ${description ?? "Transfer"}',
+          date: date,
+        );
+      }
+
       return repo.fetchTransactions();
     });
   }
 }
 
-// 3. Provider utama untuk dipantau UI
 final fiatTransactionProvider =
     AsyncNotifierProvider<FiatTransactionNotifier, List<FiatTransactionModel>>(
       () {

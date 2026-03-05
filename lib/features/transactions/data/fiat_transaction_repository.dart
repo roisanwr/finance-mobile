@@ -6,7 +6,6 @@ class FiatTransactionRepository {
 
   FiatTransactionRepository(this._supabase);
 
-  // Ambil histori transaksi user (diurutkan dari yang paling baru)
   Future<List<FiatTransactionModel>> fetchTransactions() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('User belum login!');
@@ -15,7 +14,7 @@ class FiatTransactionRepository {
         .from('fiat_transactions')
         .select()
         .eq('user_id', userId)
-        .order('transaction_date', ascending: false); // Yang terbaru di atas
+        .order('transaction_date', ascending: false);
 
     return (response as List<dynamic>)
         .map(
@@ -24,9 +23,9 @@ class FiatTransactionRepository {
         .toList();
   }
 
-  // Tambah catatan arus kas baru
   Future<void> addTransaction({
     required String walletId,
+    String? toWalletId, // TAMBAHAN BARU
     String? categoryId,
     required FiatTxType type,
     required double amount,
@@ -37,9 +36,10 @@ class FiatTransactionRepository {
     if (userId == null) throw Exception('User belum login!');
 
     final newTx = FiatTransactionModel(
-      id: '', // Di-generate oleh Supabase
+      id: '',
       userId: userId,
       walletId: walletId,
+      toWalletId: toWalletId, // Masukkan ke model
       categoryId: categoryId,
       transactionType: type,
       amount: amount,
@@ -47,7 +47,6 @@ class FiatTransactionRepository {
       transactionDate: date,
     );
 
-    // Lempar datanya ke database
     await _supabase.from('fiat_transactions').insert(newTx.toJson());
   }
 }
