@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/presentation/auth_provider.dart';
+import '../../wallets/presentation/wallet_screen.dart';
+import '../../transactions/presentation/transaction_screen.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({super.key});
@@ -15,11 +17,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   // Daftar halaman sementara (Dummy Screens)
   final List<Widget> _pages = [
     const _DummyPage(title: 'Dashboard Utama', icon: Icons.dashboard),
-    const _DummyPage(
-      title: 'Manajemen Dompet',
-      icon: Icons.account_balance_wallet,
-    ),
-    const _DummyPage(title: 'Arus Kas (Fiat)', icon: Icons.sync_alt),
+    const WalletScreen(),
+    const TransactionScreen(),
     const _DummyPage(title: 'Portofolio Investasi', icon: Icons.trending_up),
   ];
 
