@@ -1,3 +1,4 @@
+import 'package:finance_mobile/features/dashboard/presentation/main_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -33,43 +34,15 @@ class MyApp extends ConsumerWidget {
       // Menggunakan pola "when" dari Riverpod untuk menangani 3 kondisi Stream
       home: authState.when(
         data: (data) {
-          // Jika ada sesi (session != null), lempar ke Dashboard
           if (data.session != null) {
-            return const DashboardDummyScreen();
+            return const MainLayout(); // <-- Ubah di sini
           }
-          // Jika tidak ada sesi, lempar ke layar Login
           return const LoginScreen();
         },
         loading: () =>
             const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (error, stack) =>
             Scaffold(body: Center(child: Text('Error: $error'))),
-      ),
-    );
-  }
-}
-
-// Layar Dummy sementara untuk menandakan login berhasil
-class DashboardDummyScreen extends ConsumerWidget {
-  const DashboardDummyScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authRepositoryProvider).signOut(),
-          ),
-        ],
-      ),
-      body: const Center(
-        child: Text(
-          'Selamat, kamu berhasil masuk ke sistem!',
-          style: TextStyle(fontSize: 18),
-        ),
       ),
     );
   }
