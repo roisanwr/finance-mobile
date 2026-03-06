@@ -64,3 +64,12 @@ final fiatTransactionProvider =
         return FiatTransactionNotifier();
       },
     );
+
+// Provider turunan untuk menyaring mutasi khusus untuk satu dompet tertentu
+final walletTransactionsProvider = Provider.family<List<FiatTransactionModel>, String>((ref, walletId) {
+  // Ambil seluruh data transaksi yang sudah di-load di memori
+  final allTx = ref.watch(fiatTransactionProvider).valueOrNull ?? [];
+  
+  // Saring: Ambil jika dompet ini bertindak sebagai Pengirim ATAU Penerima
+  return allTx.where((tx) => tx.walletId == walletId || tx.toWalletId == walletId).toList();
+});
