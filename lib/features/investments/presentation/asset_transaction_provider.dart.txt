@@ -1,0 +1,49 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/presentation/auth_provider.dart';
+import '../data/asset_transaction_repository.dart';
+import 'portfolio_provider.dart';
+
+// 1. Inject Supabase ke Repository
+final assetTransactionRepositoryProvider = Provider<AssetTransactionRepository>((ref) {
+  final supabase = ref.watch(supabaseProvider);
+  return AssetTransactionRepository(supabase);
+});
+
+// 2. Notifier untuk mengelola state form transaksi (Loading/Sukses/Error)
+class AssetTransactionNotifier extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<void> recordTransaction({
+    required String assetName,
+    required String assetType,
+    required String tickerSymbol,
+    required String txType,
+    required double units,
+    required double pricePerUnit,
+    String? walletId,
+  }) async {
+    state = const AsyncValue.loading();
+    
+    state = await AsyncValue.guard(() async {
+      // Eksekusi transaksi ke database
+      await ref.read(assetTransactionRepositoryProvider).recordTransaction(
+        assetName: assetName,
+        assetType: assetType,
+        tickerSymbol: tickerSymbol,
+        txType: txType,
+        units: units,
+        pricePerUnit: pricePerUnit,
+        walletId: walletId,
+      );
+      
+      // Paksa refresh data portofolio agar layar langsung ter-update
+      ref.invalidate(portfolioProvider);
+    });
+  }
+}
+
+// 3. Provider utama
+final assetTransactionProvider = AsyncNotifierProvider<AssetTransactionNotifier, void>(() {
+  return AssetTransactionNotifier();
+});
